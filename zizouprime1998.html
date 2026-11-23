@@ -701,7 +701,10 @@ async function netQHost(tries){
  netReset();net.role="host";showNet(3);$("netCode").textContent="····";netStatus("⏳ Connexion au serveur de rencontre…");
  const A="ABCDEFGHJKLMNPQRSTUVWXYZ";let code="";for(let i=0;i<4;i++)code+=A[Math.random()*A.length|0];
  sigOpen("zmini-"+code,async m=>{
-  if(m.type!=="OFFER"||net.pc)return;
+  if(m.type!=="OFFER"||(net.dc&&net.dc.readyState==="open"))return;
+  /* un essai précédent qui n'a pas abouti ne doit pas bloquer le nouvel invité */
+  const old=net.pc;if(old){try{old.onconnectionstatechange=null;old.close()}catch(e){}net.pc=null;net.dc=null}
+  const tk=net.qo=(net.qo||0)+1;
   netStatus("📨 Ton ami a trouvé ta partie, connexion en cours…");
   try{
    const pc=net.pc=new RTCPeerConnection(RTC_ONL);
@@ -711,6 +714,7 @@ async function netQHost(tries){
    await pc.setRemoteDescription(m.payload);
    await pc.setLocalDescription(await pc.createAnswer());
    await waitIce(pc,7000);
+   if(net.qo!==tk||net.pc!==pc)return;
    if(net.ws)net.ws.send(JSON.stringify({type:"ANSWER",dst:m.src,payload:{type:"answer",sdp:pc.localDescription.sdp}}));
    netStatus("⏳ Connexion avec ton ami…");
   }catch(e){net.pc=null;netStatus("❌ "+e.message)}
